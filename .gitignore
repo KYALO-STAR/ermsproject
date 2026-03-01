@@ -1,0 +1,19 @@
+# Ignore the database credentials
+config.properties
+
+# Ignore compiled Java files
+*.class
+bin/
+out/
+target/
+
+# Ignore VS Code specific files
+.vscode/
+.history/
+
+# Ignore OS generated files
+Thumbs.db
+Desktop.ini
+
+# Ignore OneDrive temporary files
+~$*
