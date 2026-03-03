@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DBConnection {
-    // This method is called by your DAOs whenever they need to talk to Aiven
+    // This method is called by the DAOs whenever they need to talk to Aiven
     public static Connection getConnection() throws SQLException {
         try {
             // 1. Get credentials from our "Secret" ConfigLoader
