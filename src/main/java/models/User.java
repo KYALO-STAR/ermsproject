@@ -2,19 +2,29 @@ package models;
 
 public class User {
     private int id;
-    private String email;
-    private String role;
     private String fullName;
+    private String email;
+    private String password;
+    private String role;
 
-    public User(int id, String email, String role, String fullName) {
+    //  Constructor
+    public User(int id, String fullName, String email, String password, String role) {
         this.id = id;
-        this.email = email;
-        this.role = role;
         this.fullName = fullName;
+        this.email = email;
+        this.password = password;
+        this.role = role;
     }
 
-    // Getters
+    
+      //getter methods
     public int getId() { return id; }
-    public String getRole() { return role; }
+
     public String getFullName() { return fullName; }
+
+    public String getEmail() { return email; }
+
+    public String getPassword() { return password; }
+
+    public String getRole() { return role; }
 }
