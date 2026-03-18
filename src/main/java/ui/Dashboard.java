@@ -65,20 +65,24 @@ public class Dashboard extends Frame {
 
             Button btnEditGrades = new Button("Edit Student Grades");
             btnEditGrades.setFont(buttonFont);
+            btnEditGrades.addActionListener(e -> new EditGradesFrame());
             menuPanel.add(btnEditGrades);
 
             Button btnViewClass = new Button("View Class Performance");
             btnViewClass.setFont(buttonFont);
+            btnViewClass.addActionListener(e -> new ClassPerformanceFrame());
             menuPanel.add(btnViewClass);
 
         // Student
         } else {
             Button btnResults = new Button("View My Results");
             btnResults.setFont(buttonFont);
+            btnResults.addActionListener(e -> new StudentResultsFrame());
             menuPanel.add(btnResults);
 
             Button btnTranscript = new Button("Download Transcript");
             btnTranscript.setFont(buttonFont);
+            btnTranscript.addActionListener(e -> new TranscriptFrame());
             menuPanel.add(btnTranscript);
         }
 

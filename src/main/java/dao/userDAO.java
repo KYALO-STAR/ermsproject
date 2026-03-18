@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.mindrot.jbcrypt.BCrypt; // Import BCrypt
+
 import database.DBConnection;
 import models.User;
 
@@ -23,15 +25,15 @@ public class userDAO {
             ResultSet rs = ps.executeQuery();
 
             if (rs.next()) {
-                String dbPassword = rs.getString("password_hash");
-                // protect against null passwords
-                if (dbPassword != null && passwordPlain.equals(dbPassword)) {
+                String dbPasswordHash = rs.getString("password_hash");
+                // protect against null passwords and use BCrypt to check
+                if (dbPasswordHash != null && BCrypt.checkpw(passwordPlain, dbPasswordHash)) {
                     // return a minimal User (no password field populated)
                     return new User(
                         rs.getInt("id"),
                         rs.getString("full_name"),
                         rs.getString("email"),
-                        "",
+                        "", // Password not returned
                         rs.getString("role")
                     );
                 }
@@ -43,17 +45,18 @@ public class userDAO {
         return null;
     }
 
-    // Registration: store plaintext password for now (no hashing)
+    // Registration: hash password with BCrypt before storing
     public boolean registerUser(User newUser) {
         String sql = "INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
+            String hashedPassword = BCrypt.hashpw(newUser.getPassword(), BCrypt.gensalt());
+
             pstmt.setString(1, newUser.getFullName());
             pstmt.setString(2, newUser.getEmail());
-            // storing the plaintext password in the password_hash column for now
-            pstmt.setString(3, newUser.getPassword());
+            pstmt.setString(3, hashedPassword); // Store hashed password
             pstmt.setString(4, newUser.getRole());
 
             int rowsInserted = pstmt.executeUpdate();

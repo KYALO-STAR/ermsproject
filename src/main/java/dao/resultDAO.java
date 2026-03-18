@@ -46,8 +46,9 @@ public class resultDAO {
      * Ensures all JDBC resources are closed by using try-with-resources.
      */
     public List<ResultRecord> getStudentResults(int studentId) {
-        String sql = "SELECT r.*, e.unit_name FROM results r " +
+        String sql = "SELECT r.*, e.unit_name, u.full_name AS student_name FROM results r " +
                      "JOIN exams e ON r.exam_id = e.id " +
+                     "JOIN users u ON r.student_id = u.id " +
                      "WHERE r.student_id = ?";
 
         List<ResultRecord> results = new ArrayList<>();
@@ -65,13 +66,50 @@ public class resultDAO {
                         rs.getInt("student_id"),
                         rs.getInt("marks_obtained"),
                         rs.getString("file_path"),
-                        rs.getString("unit_name")
+                        rs.getString("unit_name"),
+                        rs.getString("student_name") // Pass studentName
                     );
                     results.add(r);
                 }
             }
         } catch (SQLException e) {
             // Print error for debugging in the class project; replace with logger if evolving.
+            e.printStackTrace();
+        }
+
+        return results;
+    }
+
+    /**
+     * Fetches results for a specific exam and returns a list of ResultRecord.
+     * Ensures all JDBC resources are closed by using try-with-resources.
+     */
+    public List<ResultRecord> getResultsForExam(int examId) {
+        String sql = "SELECT r.*, e.unit_name, u.full_name AS student_name FROM results r " +
+                     "JOIN exams e ON r.exam_id = e.id " +
+                     "JOIN users u ON r.student_id = u.id " + // Join with users to get student name
+                     "WHERE r.exam_id = ?";
+
+        List<ResultRecord> results = new ArrayList<>();
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, examId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ResultRecord r = new ResultRecord(
+                        rs.getInt("exam_id"),
+                        rs.getInt("student_id"),
+                        rs.getInt("marks_obtained"),
+                        rs.getString("file_path"),
+                        rs.getString("unit_name"),
+                        rs.getString("student_name") // Pass studentName
+                    );
+                    results.add(r);
+                }
+            }
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 

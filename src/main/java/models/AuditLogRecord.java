@@ -1,4 +1,4 @@
-﻿package models;
+package models;
 
 public class AuditLogRecord {
     private final int userId;

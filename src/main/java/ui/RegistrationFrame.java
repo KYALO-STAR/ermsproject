@@ -82,15 +82,21 @@ public class RegistrationFrame extends Frame {
             userDAO dao = new userDAO();
             if (dao.registerUser(newUser)) {
                 System.out.println("Account created successfully!");
+                // Log the action only if isAdminMode is true and role is lecturer
+                // This logging logic seems specific and might need review, but addressing the immediate bug first.
+                if (isAdminMode && assignedRole.equals("lecturer")) { // Assuming the original intent was to log lecturer additions by admin
+                    auditDAO.log("USER_MANAGEMENT", "Admin added new lecturer: " + txtName.getText());
+                } else if (isAdminMode && assignedRole.equals("admin")) {
+                    auditDAO.log("USER_MANAGEMENT", "Admin added new admin: " + txtName.getText());
+                } else if (isAdminMode && assignedRole.equals("student")) {
+                    auditDAO.log("USER_MANAGEMENT", "Admin added new student: " + txtName.getText());
+                } else { // Regular student registration
+                    auditDAO.log("USER_MANAGEMENT", "New student registered: " + txtName.getText());
+                }
+
+                javax.swing.JOptionPane.showMessageDialog(this, "Account created successfully!");
                 new loginFrame();
                 dispose();
-            }// Inside RegistrationFrame handleRegister() method
-            if (dao.registerUser(newUser)) {
-    // LOG THE ACTION
-            auditDAO.log("USER_MANAGEMENT", "Admin added new lecturer: " + txtName.getText());
-    
-           javax.swing.JOptionPane.showMessageDialog(this, "Lecturer Added Successfully!");
-            dispose(); // Close form on success
             } else {
                 System.err.println("Failed to create account.");
                 javax.swing.JOptionPane.showMessageDialog(this, "Error: Could not create account. Please try again.", "Registration Failed", javax.swing.JOptionPane.ERROR_MESSAGE);
