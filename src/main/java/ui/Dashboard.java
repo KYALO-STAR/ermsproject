@@ -3,6 +3,8 @@ package ui;
 import java.awt.BorderLayout;
 import java.awt.Button;
 import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GridLayout;
 import java.awt.Label;
@@ -14,75 +16,82 @@ import database.UserSession;
 
 public class Dashboard extends Frame {
     public Dashboard() {
-        // Get the logged-in user's info from the Session we set during login
-        // guard against missing session
         if (UserSession.getCurrentUser() == null) {
             System.err.println("No user in session — redirecting to login.");
             new loginFrame();
             dispose();
             return;
         }
+
         String name = UserSession.getCurrentUser().getFullName();
         String role = UserSession.getCurrentUser().getRole();
 
         setTitle("ERMS Dashboard - " + role.toUpperCase());
-        setSize(600, 500);
-        setLayout(new BorderLayout());
-        
-        // TOP PANEL: Welcome Message
-        Panel topPanel = new Panel();
-        topPanel.setBackground(new Color(51, 153, 255));
-        Label lblWelcome = new Label("Welcome, " + name, Label.CENTER);
+        setSize(700, 520);
+        setLayout(new BorderLayout(10, 10));
+
+        Font headerFont = new Font("SansSerif", Font.BOLD, 18);
+        Font buttonFont = new Font("SansSerif", Font.PLAIN, 14);
+
+        Panel topPanel = new Panel(new FlowLayout(FlowLayout.CENTER));
+        topPanel.setBackground(new Color(34, 139, 230));
+        Label lblWelcome = new Label("Welcome, " + name);
         lblWelcome.setForeground(Color.WHITE);
+        lblWelcome.setFont(headerFont);
         topPanel.add(lblWelcome);
         add(topPanel, BorderLayout.NORTH);
 
-        // CENTER PANEL: Role-Specific Buttons
-        Panel menuPanel = new Panel(new GridLayout(4, 1, 10, 10));
-        
+        Panel menuPanel = new Panel(new GridLayout(0, 2, 12, 12));
+        menuPanel.setBackground(Color.WHITE);
+
+        // Admin
         if (role.equalsIgnoreCase("admin")) {
-            Button btnManageUsers = new Button("Manage Users (Add/Edit)");
+            Button btnManageUsers = new Button("Manage Users");
+            btnManageUsers.setFont(buttonFont);
             btnManageUsers.addActionListener(e -> new RegistrationFrame(true));
             menuPanel.add(btnManageUsers);
-            
-            menuPanel.add(new Button("View System Logs"));
-        } else if (role.equalsIgnoreCase("lecturer")) {
-            menuPanel.add(new Button("Upload Exam Marks"));
-            menuPanel.add(new Button("Edit Student Grades"));
+
+            Button btnLogs = new Button("View System Logs");
+            btnLogs.addActionListener(e -> new LogsFrame());
+            btnLogs.setFont(buttonFont);
+            menuPanel.add(btnLogs);
+
+        // Lecturer
+        } else if (role.equalsIgnoreCase("lecturer or admin")) {
+            Button btnUpload = new Button("Upload Exam Marks");
+            btnUpload.setFont(buttonFont);
+            btnUpload.addActionListener(e -> new MarkUploadFrame());
+            menuPanel.add(btnUpload);
+
+            Button btnEditGrades = new Button("Edit Student Grades");
+            btnEditGrades.setFont(buttonFont);
+            menuPanel.add(btnEditGrades);
+
+            Button btnViewClass = new Button("View Class Performance");
+            btnViewClass.setFont(buttonFont);
+            menuPanel.add(btnViewClass);
+
+        // Student
         } else {
-            menuPanel.add(new Button("View My Results"));
-            menuPanel.add(new Button("Download Transcript"));
+            Button btnResults = new Button("View My Results");
+            btnResults.setFont(buttonFont);
+            menuPanel.add(btnResults);
+
+            Button btnTranscript = new Button("Download Transcript");
+            btnTranscript.setFont(buttonFont);
+            menuPanel.add(btnTranscript);
         }
-
-
-        // Inside your Dashboard.java center panel logic:
-if (role.equalsIgnoreCase("lecturer")) {
-    Button btnUpload = new Button("Upload Student Marks (CSV)");
-    Button btnViewClass = new Button("View Class Performance");
-
-    btnUpload.addActionListener(e -> {
-        // This is where the Scanner logic will live!
-        new MarkUploadFrame(); 
-    });
-
-    menuPanel.add(btnUpload);
-    menuPanel.add(btnViewClass);
-}
 
         add(menuPanel, BorderLayout.CENTER);
 
-        // BOTTOM PANEL: Logout
+        Panel bottom = new Panel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         Button btnLogout = new Button("Logout");
-        btnLogout.addActionListener(e -> {
-            UserSession.logout();
-            new loginFrame();
-            dispose();
-        });
-        add(btnLogout, BorderLayout.SOUTH);
+        btnLogout.setFont(buttonFont);
+        btnLogout.addActionListener(e -> { UserSession.logout(); new loginFrame(); dispose(); });
+        bottom.add(btnLogout);
+        add(bottom, BorderLayout.SOUTH);
 
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) { System.exit(0); }
-        });
+        addWindowListener(new WindowAdapter() { public void windowClosing(WindowEvent e) { System.exit(0); } });
 
         setLocationRelativeTo(null);
         setVisible(true);

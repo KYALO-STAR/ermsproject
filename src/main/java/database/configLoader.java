@@ -29,12 +29,21 @@ public class configLoader {
         }
 
         if (!loaded) {
+            // Informative message for students: if you don't have a config file,
+            // the code will still look for environment variables (see get()).
             System.err.println(" CRITICAL ERROR: config.properties not found!");
             System.err.println("Working Directory: " + System.getProperty("user.dir"));
         }
     }
 
     public static String get(String key) {
-        return props.getProperty(key);
+        String v = props.getProperty(key);
+        if (v != null) return v;
+        // Fallback to environment variable, e.g. db.url -> DB_URL
+        String envKey = key.replace('.', '_').toUpperCase();
+        // Return environment variable value if present. This lets you avoid
+        // storing database credentials in a plaintext file when demonstrating
+        // or running locally (set DB_URL, DB_USER, DB_PASSWORD instead).
+        return System.getenv(envKey);
     }
 }

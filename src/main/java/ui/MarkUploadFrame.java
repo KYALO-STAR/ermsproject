@@ -1,115 +1,182 @@
 package ui;
 
-import dao.resultDAO;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.Button;
+import java.awt.Color;
+import java.awt.FileDialog;
+import java.awt.Frame;
+import java.awt.GridLayout;
+import java.awt.Label;
+import java.awt.TextField;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
-import javax.swing.JFileChooser; // Using Swing's chooser for a better folder-pick experience
+import java.io.IOException;
+import java.net.InetAddress;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+
+import dao.resultDAO;
+import database.UserSession;
+import ui.upload.UploaderServer;
+
+/**
+ * MarkUploadFrame: keeps the UI simple but now can also start an embedded HTTP upload server
+ * so phones can POST PDFs directly to the desktop application.
+ */
 public class MarkUploadFrame extends Frame {
-    TextField txtExamId, txtFolderPath;
-    Button btnSelectFolder, btnProcess, btnBack;
-    TextArea logArea;
+    TextField txtExamId;
+    Label lblStatus;
+    Label lblUrl;
+    private UploaderServer server;
+    private Button btnPhoneUpload;
 
     public MarkUploadFrame() {
-        setTitle("ERMS - Digitization Portal");
-        setSize(500, 500);
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(230, 230, 230));
+        setTitle("ERMS Scanner Portal - Digitizing Booklets");
 
-        // Top Panel: Input Info
-        Panel topPanel = new Panel(new GridLayout(3, 2, 5, 5));
-        topPanel.add(new Label("Exam ID (Unit Code):"));
+        // Enforce role-based access: only 'lecturer' and 'admin' may open this screen
+        if (UserSession.getCurrentUser() == null
+                || "student".equalsIgnoreCase(UserSession.getCurrentUser().getRole())) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Access denied: only lecturers and admins may use the scanner.");
+            new loginFrame();
+            dispose();
+            return;
+        }
+        setSize(500, 320);
+        setLayout(new GridLayout(7, 1, 10, 10));
+
+        add(new Label("Enter Exam ID (Unit Code):", Label.CENTER));
         txtExamId = new TextField();
-        topPanel.add(txtExamId);
+        add(txtExamId);
 
-        topPanel.add(new Label("Scans Folder:"));
-        txtFolderPath = new TextField();
-        txtFolderPath.setEditable(false);
-        topPanel.add(txtFolderPath);
+        Button btnScanFolder = new Button("Select Folder & Start Scanning");
+        btnScanFolder.setBackground(Color.ORANGE);
+        add(btnScanFolder);
 
-        btnSelectFolder = new Button("Browse Folder");
-        topPanel.add(btnSelectFolder);
-        
-        btnProcess = new Button("Start Digitization");
-        btnProcess.setBackground(Color.GREEN);
-        topPanel.add(btnProcess);
+        btnPhoneUpload = new Button("Start Phone Upload Server");
+        add(btnPhoneUpload);
 
-        add(topPanel, BorderLayout.NORTH);
+        lblUrl = new Label("Upload URL: (server not running)", Label.CENTER);
+        add(lblUrl);
 
-        // Center: Progress Log
-        logArea = new TextArea("Ready to process...\nNote: Ensure files are named 'StudentID_Marks.pdf' (e.g. 7001_85.pdf)\n");
-        add(logArea, BorderLayout.CENTER);
+        lblStatus = new Label("Ready...", Label.CENTER);
+        add(lblStatus);
 
-        // Bottom: Navigation
-        btnBack = new Button("Return to Dashboard");
-        add(btnBack, BorderLayout.SOUTH);
+        Button btnClose = new Button("Close");
+        add(btnClose);
 
-        // --- Event Handling ---
+        // --- SCANNER LOGIC ---
+        btnScanFolder.addActionListener(e -> {
+            String examIdStr = txtExamId.getText();
+            if (examIdStr.isEmpty()) {
+                lblStatus.setText("Error: Enter Exam ID first!");
+                return;
+            }
 
-        btnSelectFolder.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            int returnVal = chooser.showOpenDialog(this);
-            if(returnVal == JFileChooser.APPROVE_OPTION) {
-                txtFolderPath.setText(chooser.getSelectedFile().getAbsolutePath());
+            try {
+                int examId = Integer.parseInt(examIdStr);
+                startFolderScanner(examId);
+            } catch (NumberFormatException ex) {
+                lblStatus.setText("Error: Exam ID must be a number!");
+            }
+          
+ });
+
+        btnPhoneUpload.addActionListener(e -> {
+            if (server == null) {
+                String examIdStr = txtExamId.getText();
+                if (examIdStr.isEmpty()) {
+                    lblStatus.setText("Error: Enter Exam ID first!");
+                    return;
+                }
+                try {
+                    int examId = Integer.parseInt(examIdStr);
+                    int port = 8080;
+                    server = new UploaderServer(port, examId);
+                    server.start();
+                    String ip = InetAddress.getLocalHost().getHostAddress();
+                    lblUrl.setText("Upload URL: http://" + ip + ":" + port + "/upload");
+                    btnPhoneUpload.setLabel("Stop Phone Upload Server");
+                    lblStatus.setText("Server running — open the URL on your phone's browser.");
+                } catch (NumberFormatException ex) {
+                    lblStatus.setText("Error: Exam ID must be a number!");
+                } catch (IOException ex) {
+                    lblStatus.setText("Failed to start server: " + ex.getMessage());
+                    server = null;
+                }
+            } else {
+                server.stop();
+                server = null;
+                lblUrl.setText("Upload URL: (server not running)");
+                btnPhoneUpload.setLabel("Start Phone Upload Server");
+                lblStatus.setText("Server stopped");
             }
         });
 
-        btnProcess.addActionListener(e -> startProcessing());
-
-        btnBack.addActionListener(e -> {
-            new Dashboard();
+        btnClose.addActionListener(e -> {
+            if (server != null) server.stop();
             dispose();
         });
 
+        // Handle window close button
         addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) { dispose(); }
+            public void windowClosing(WindowEvent e) { if (server != null) server.stop(); dispose(); }
         });
 
-        setLocationRelativeTo(null);
         setVisible(true);
+        setLocationRelativeTo(null);
     }
 
-    private void startProcessing() {
-        String folderPath = txtFolderPath.getText();
-        String examIdStr = txtExamId.getText();
+    private void startFolderScanner(int examId) {
+        // 1. Open Folder Picker
+        FileDialog fd = new FileDialog(this, "Select Folder Containing Marked Booklets", FileDialog.LOAD);
+        fd.setVisible(true);
 
-        if (folderPath.isEmpty() || examIdStr.isEmpty()) {
-            logArea.append("ERROR: Fill all fields!\n");
-            return;
-        }
+        if (fd.getDirectory() != null) {
+            File folder = new File(fd.getDirectory());
+            // Filter only PDF files
+            File[] files = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
 
-        File folder = new File(folderPath);
-        File[] files = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
-
-        if (files == null || files.length == 0) {
-            logArea.append("No PDF files found in this directory.\n");
-            return;
-        }
-
-        int examId = Integer.parseInt(examIdStr);
-        resultDAO dao = new resultDAO();
-        int successCount = 0;
-
-        for (File file : files) {
-            try {
-                // Parsing filename: "StudentID_Marks.pdf" -> ["StudentID", "Marks"]
-                String nameOnly = file.getName().substring(0, file.getName().lastIndexOf('.'));
-                String[] parts = nameOnly.split("_");
-                
-                int studentId = Integer.parseInt(parts[0]);
-                int marks = Integer.parseInt(parts[1]);
-                String path = file.getAbsolutePath();
-
-                if (dao.saveResult(examId, studentId, marks, path)) {
-                    logArea.append("Digitized: " + studentId + " [Mark: " + marks + "]\n");
-                    successCount++;
-                }
-            } catch (Exception ex) {
-                logArea.append("Skipped " + file.getName() + ": Invalid naming format.\n");
+            if (files == null || files.length == 0) {
+                lblStatus.setText("No PDF booklets found in this folder.");
+                return;
             }
+
+            resultDAO dao = new resultDAO();
+            int successCount = 0;
+
+            for (File file : files) {
+                // 2. Validate PDF using PDFBox (Digital Integrity Scan)
+                // This ensures the file is a real PDF and not corrupt
+                try (PDDocument doc = Loader.loadPDF(file)) {
+
+                    // 3. Extract Data from Filename: "StudentID_Marks.pdf" (e.g., 71_85.pdf)
+                    String fileName = file.getName().replace(".pdf", "");
+                    String[] parts = fileName.split("_");
+
+                    if (parts.length < 2) {
+                        System.out.println("Skipping: " + file.getName() + " (Wrong format)");
+                        continue;
+                    }
+
+                    int studentId = Integer.parseInt(parts[0].trim());
+                    int marks = Integer.parseInt(parts[1].trim());
+                    String path = file.getAbsolutePath();
+
+                    // 4. Save to Aiven MySQL
+                    if (dao.saveResult(examId, studentId, marks, path)) {
+                        successCount++;
+                        System.out.println("Digitized Student ID: " + studentId);
+                    }
+
+                } catch (Exception e) {
+                    System.err.println("Error scanning/validating booklet: " + file.getName());
+                }
+            }
+
+            lblStatus.setText("Scan Complete! " + successCount + " booklets digitized.");
+            javax.swing.JOptionPane.showMessageDialog(this, "Success! Digitized " + successCount + " records to Aiven.");
         }
-        logArea.append("--- FINISHED: " + successCount + " booklets linked ---\n");
     }
 }
